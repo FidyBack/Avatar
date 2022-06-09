@@ -15,7 +15,7 @@ public class ElementControl : MonoBehaviour {
     private bool objectAction = false;
 
     private GameManager gm;
-    private Vector3[] pos, velocity;
+    private Vector3[] pos, rot, velocity;
 
 
     void Start() {
@@ -30,6 +30,7 @@ public class ElementControl : MonoBehaviour {
         for (int i = 0; i < Controllers.Length; i++) {
             stoneIsSpawned[i] = false;
             pos[i] = Controllers[i].transform.position;
+            // rot[i] = Controllers[i].transform.rotation.eulerAngles;
             velocity[i] = Vector3.zero;
         }
 
@@ -47,22 +48,63 @@ public class ElementControl : MonoBehaviour {
             pos[i] = Controllers[i].transform.position;
 
             if (gm.gameState == GameManager.GameState.BEGIN) {
-                if (velocity[0].y < -4.5f && velocity[1].y < -4.5f && !objectAction) {
+                velocity[i] = velocity[i].normalized;
+                horizontalVel = Mathf.Sqrt(Mathf.Pow(velocity[i].z, 2) + Mathf.Pow(velocity[i].x, 2));
+
+                Debug.Log(velocity[i] + " " + horizontalVel);
+
+                if ((velocity[0].y < -0.5f && velocity[1].y < -0.5f && !objectAction)) {
                     objectAction = true;
                     CreateWall();
                 }
-                else if (velocity[0].z > 3f && velocity[1].z > 3f && !objectAction) {
+                else if (horizontalVel > 0.5f && !objectAction) {
                     objectAction = true;
                     PushWall();
                 }
-                else if (velocity[i].y > 4.5f && !objectAction) {
+                else if (velocity[i].y > 0.5f && !objectAction) {
                     SpawnStone(i);
                 }
-                else if (velocity[i].z > 4f && !objectAction) {
-                    PushStone(i);
+                else if (horizontalVel > 0.5f && !objectAction) {
+                    objectAction = true;
+                    CreateWall();
                 }
             }
         }
+    }
+
+
+    // Wall
+    void CreateWall() {
+        Debug.Log("Creating wall");
+        if (numWalls < 1) {
+            wallIntantiated = Instantiate(wall, new Vector3(pos[0].x, -1, pos[0].z)+(Vector3.forward*2f), Quaternion.identity);
+            StartCoroutine(WallUp(wallIntantiated, 1.0f));
+            numWalls++;
+        }
+    }
+
+    IEnumerator WallUp(GameObject wall, float time = 1f) {
+        float t = 0;
+        float x = wall.transform.position.x;
+        float z = wall.transform.position.z;
+        while (t < time) {
+            t += Time.deltaTime;
+            wall.transform.position = Vector3.Lerp(wall.transform.position, new Vector3(x, 0.8f, z), t / time);
+            yield return null;
+        }
+        objectAction = false;
+    }
+
+    void PushWall() {
+        Debug.Log("Pushing wall");
+        if (wallIntantiated != null) {
+            // mean of the velocity
+            Vector3 mean = (velocity[0] + velocity[1]) / 2;
+            wallIntantiated.GetComponent<Rigidbody>().AddForce(new Vector3(mean.x, 0, mean.z) * 5f, ForceMode.Impulse);
+            wallIntantiated = null;
+            numWalls--;
+        }
+        objectAction = false;
     }
 
 
@@ -95,41 +137,6 @@ public class ElementControl : MonoBehaviour {
             stoneIntantiated[i].GetComponent<Rigidbody>().AddForce(velocity[i]*5f, ForceMode.Impulse);
             stoneIntantiated[i].GetComponent<Rigidbody>().useGravity = true;
             stoneIntantiated[i] = null;
-        }
-        objectAction = false;
-    }
-
-
-    // Wall
-    void CreateWall() {
-        Debug.Log("Creating wall");
-        if (numWalls < 1) {
-            wallIntantiated = Instantiate(wall, new Vector3(pos[0].x, 0, pos[0].z)+(Vector3.forward*1.5f), Quaternion.identity);
-            StartCoroutine(WallUp(wallIntantiated, 2.0f));
-            numWalls++;
-        }
-    }
-
-    IEnumerator WallUp(GameObject wall, float time = 1f) {
-        float t = 0;
-        float x = wall.transform.position.x;
-        float z = wall.transform.position.z;
-        while (t < time) {
-            t += Time.deltaTime;
-            wall.transform.position = Vector3.Lerp(wall.transform.position, new Vector3(x, 1f, z) + (Vector3.forward * 1.5f), t / time);
-            yield return null;
-        }
-        objectAction = false;
-    }
-
-    void PushWall() {
-        Debug.Log("Pushing wall");
-        if (wallIntantiated != null) {
-            // mean of the velocity
-            Vector3 mean = (velocity[0] + velocity[1]) / 2;
-            wallIntantiated.GetComponent<Rigidbody>().AddForce(new Vector3(mean.x, 0, mean.z) * 5f, ForceMode.Impulse);
-            wallIntantiated = null;
-            numWalls--;
         }
         objectAction = false;
     }
